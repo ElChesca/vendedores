@@ -120,7 +120,10 @@ class MainActivity : ComponentActivity() {
                         if (cr.error == null) customers = extractArray(cr.json, cr.array, "clientes").toObjectList().map { SellerCustomer.fromJson(it) }
                     }
                     BaboonsApi.getProyectado(s, today) { pr ->
-                        if (pr.error == null) plan = extractArray(pr.json, pr.array, "items").toObjectList().map { PlanEntry.fromJson(it) }
+                        if (pr.error == null) {
+                            val planId = pr.json?.optLong("proyectado_id") ?: 0L
+                            plan = extractArray(pr.json, pr.array, "items").toObjectList().map { PlanEntry.fromJson(it, planId) }
+                        }
                     }
                     BaboonsApi.tablero(s, today) { sr -> if (sr.error == null) summary = SellerSummary.fromJson(sr.json ?: JSONObject()) }
                 }
@@ -207,7 +210,7 @@ class MainActivity : ComponentActivity() {
                         })
                     SellerTab.MAP -> MapScreen(routePoints, customers.filter { customer -> plan.any { it.customerId == customer.id } })
                     SellerTab.PLAN -> PlanScreen(customers, plan, jornadaAbierta, pendingRequired, busy, onVisit = { entry, result, notes ->
-                        BaboonsApi.registrarVisita(session!!, today, entry.id, entry.customerId, result, notes, UUID.randomUUID().toString()) { response ->
+                        BaboonsApi.registrarVisita(session!!, today, entry.proyectadoId, entry.customerId, result, notes, UUID.randomUUID().toString()) { response ->
                             if (response.error != null) error = response.error else { notice = "Visita registrada"; loadDay(session!!) }
                         }
                     }, onSave = { amounts ->

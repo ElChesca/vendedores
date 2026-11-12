@@ -52,6 +52,7 @@ data class SellerCustomer(
 
 data class PlanEntry(
     val id: Long,
+    val proyectadoId: Long,
     val customerId: Long,
     val order: Int,
     val estimatedAmount: Double,
@@ -59,13 +60,14 @@ data class PlanEntry(
     val exceptionReason: String
 ) {
     companion object {
-        fun fromJson(json: JSONObject) = PlanEntry(
-            id = json.optLong("id", json.optLong("proyectado_id")),
+        fun fromJson(json: JSONObject, planId: Long = 0) = PlanEntry(
+            id = json.optLong("id"),
+            proyectadoId = json.optLong("proyectado_id").takeIf { it > 0 } ?: planId,
             customerId = json.optLong("cliente_id"),
             order = json.optInt("orden"),
             estimatedAmount = json.optDouble("importe_estimado"),
             exception = json.optBoolean("es_excepcion"),
-            exceptionReason = json.optString("motivo_excepcion")
+            exceptionReason = if (json.isNull("motivo_excepcion")) "" else json.optString("motivo_excepcion")
         )
     }
 }
@@ -91,13 +93,13 @@ data class SellerSummary(
                 projectedCustomers = seller.optInt("clientes_proyectados"),
                 visitedCustomers = seller.optInt("clientes_visitados"),
                 customersWithSale = seller.optInt("clientes_con_venta"),
-                projectedAmount = seller.optDouble("importe_proyectado"),
-                soldAmount = seller.optDouble("importe_vendido"),
-                targetAmount = seller.optDouble("importe_objetivo"),
-                coveragePercent = seller.optDouble("cobertura_pct"),
-                conversionPercent = seller.optDouble("conversion_pct"),
-                targetPercent = seller.optDouble("objetivo_pct"),
-                soldVsProjectedPercent = seller.optDouble("venta_vs_proyectado_pct")
+                projectedAmount = seller.numberOrNull("importe_proyectado") ?: 0.0,
+                soldAmount = seller.numberOrNull("importe_vendido") ?: 0.0,
+                targetAmount = seller.numberOrNull("importe_objetivo") ?: 0.0,
+                coveragePercent = seller.numberOrNull("cobertura_pct") ?: 0.0,
+                conversionPercent = seller.numberOrNull("conversion_pct") ?: 0.0,
+                targetPercent = seller.numberOrNull("objetivo_pct") ?: 0.0,
+                soldVsProjectedPercent = seller.numberOrNull("venta_vs_proyectado_pct") ?: 0.0
             )
         }
     }
