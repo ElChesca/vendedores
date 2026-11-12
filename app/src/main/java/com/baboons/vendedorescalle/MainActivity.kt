@@ -204,7 +204,9 @@ class MainActivity : ComponentActivity() {
                 }
             },
             floatingActionButton = {
-                if (jornadaAbierta) {
+                // En Mapa se oculta para no superponerse con "Mi ubicación";
+                // el alta de potenciales sigue disponible en Jornada, Proyectado e Indicadores.
+                if (jornadaAbierta && tab != SellerTab.MAP) {
                     FloatingActionButton(onClick = { prospectDialog = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
                         Icon(Icons.Outlined.Add, contentDescription = "Nuevo potencial")
                     }
