@@ -74,7 +74,7 @@ object BaboonsApi {
         tablero(session, date, date, callback)
 
     fun tablero(session: SellerSession, from: String, until: String, callback: (ApiResult) -> Unit) =
-        request("GET", biz(session, "vendedores-calle/tablero?desde=${encode(from)}&hasta=${encode(until)}"), session, null, callback)
+        request("GET", biz(session, "vendedores-calle/tablero?desde=${encode(from)}&hasta=${encode(until)}&vendedor_id=${session.sellerId}"), session, null, callback)
 
     fun miRastro(session: SellerSession, date: String, callback: (ApiResult) -> Unit) =
         request("GET", "negocios/${session.businessId}/mobile/mi-rastro?fecha=${encode(date)}", session, null, callback)

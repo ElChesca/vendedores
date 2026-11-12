@@ -2,7 +2,7 @@
 
 Estado: endpoints del MVP integrados en Baboons mediante el PR #427, ya mergeado; el SQL de `migrations/vendedores_calle_mvp.sql` fue ejecutado en Neon. Todas las rutas usan JWT Baboons y el prefijo `/api`.
 
-Base: `https://<servidor-baboons>/api/negocios/{negocio_id}`. Enviar `Authorization: Bearer <jwt_token>` y `Content-Type: application/json`.
+Base de la app: `https://concesionarias.baboons.com.ar/api/negocios/{negocio_id}`. Enviar `Authorization: Bearer <jwt_token>` y `Content-Type: application/json`.
 
 ## Endpoints
 
@@ -17,9 +17,10 @@ Base: `https://<servidor-baboons>/api/negocios/{negocio_id}`. Enviar `Authorizat
 | `GET` | `/vendedores-calle/mensajes/{mensaje_id}/respuestas` | Admin | Consulta feedback y acuses por vendedor. |
 | `PUT` | `/vendedores-calle/asignaciones/{vendedor_id}/{fecha}` | Admin | Asigna `zona_id` para una fecha. |
 | `GET` | `/vendedores-calle/clientes-proyectables?fecha=YYYY-MM-DD` | Vendedor | Devuelve clientes activos de la zona y dia con visita habilitada. |
+| `GET` | `/vendedores-calle/clientes-buscar?q=...` | Vendedor | Busca clientes activos del negocio por nombre, direccion o telefono (minimo 2 caracteres). Se usa para agregar excepciones fuera de zona. |
 | `GET` | `/vendedores-calle/proyectado?fecha=YYYY-MM-DD` | Vendedor | Consulta los renglones proyectados. |
 | `PUT` | `/vendedores-calle/proyectado` | Vendedor | Guarda `fecha` e `items: [{cliente_id, importe_estimado}]`. Requiere jornada abierta y aceptar mensajes obligatorios. |
-| `POST` | `/vendedores-calle/proyectado/excepciones` | Vendedor | Agrega `fecha`, `cliente_id` y `motivo` para cliente fuera de zona. La app necesita una fuente de busqueda de clientes fuera de zona, aun no incluida en los endpoints actuales. |
+| `POST` | `/vendedores-calle/proyectado/excepciones` | Vendedor | Agrega `fecha`, `cliente_id` y `motivo` para cliente fuera de zona. La busqueda de esos clientes es `GET /vendedores-calle/clientes-buscar`. |
 | `POST` | `/vendedores-calle/visitas` | Vendedor | Registra `fecha`, `proyectado_id`, `cliente_id`, `resultado`, `observaciones` e `idempotency_key`. |
 | `POST` | `/vendedores-calle/prospectos` | Vendedor | Crea lead CRM con contacto, direccion y coordenadas; acepta `idempotency_key` y envia correo a admins del negocio. |
 | `POST` | `/vendedores-calle/objetivos` | Admin | Guarda `vendedor_id`, `desde`, `hasta`, `importe_objetivo`; no acepta periodos superpuestos. |

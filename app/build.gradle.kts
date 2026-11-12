@@ -18,7 +18,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "BABOONS_API_BASE", "\"https://multinegociobaboons-fly.fly.dev/api/\"")
+        buildConfigField("String", "BABOONS_API_BASE", "\"https://concesionarias.baboons.com.ar/api/\"")
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey.get()
     }
 
