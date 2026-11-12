@@ -108,6 +108,20 @@ class OfflineLocationDb(context: Context) : SQLiteOpenHelper(context, "street_lo
             while (cursor.moveToNext()) add(MapPoint(cursor.getDouble(0), cursor.getDouble(1)))
         }.asReversed()
     }
+
+    /** Último punto guardado, de cualquier día. Ignora coordenadas inválidas o (0,0). */
+    @Synchronized
+    fun lastPoint(): MapPoint? = readableDatabase.rawQuery(
+        "SELECT latitude, longitude FROM gps_history ORDER BY timestamp_ms DESC LIMIT 20",
+        null
+    ).use { cursor ->
+        while (cursor.moveToNext()) {
+            val latitude = cursor.getDouble(0)
+            val longitude = cursor.getDouble(1)
+            if (isValidMapCoordinate(latitude, longitude)) return@use MapPoint(latitude, longitude)
+        }
+        null
+    }
 }
 
 object DeviceIdentity {
