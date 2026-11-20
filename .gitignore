@@ -5,3 +5,5 @@ local.properties
 *.iml
 .idea/
 .kotlin/
+# Shim de compilacion del flavor qa (app de testing). No es el google-services.json real de Firebase.
+app/src/qa/google-services.json

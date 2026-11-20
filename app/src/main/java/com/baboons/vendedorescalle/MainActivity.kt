@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.baboons.vendedorescalle.ui.components.BrandLogos
 import com.baboons.vendedorescalle.ui.components.ErrorBanner
+import com.baboons.vendedorescalle.ui.components.TestingEnvironmentBanner
 import com.baboons.vendedorescalle.ui.screens.CustomerDetailScreen
 import com.baboons.vendedorescalle.ui.screens.LoginScreen
 import com.baboons.vendedorescalle.ui.screens.MapScreen
@@ -85,6 +86,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        android.util.Log.i(
+            "BondVendedores",
+            "env=${if (BuildConfig.IS_TESTING) "testing" else "prod"} api=${BuildConfig.BABOONS_API_BASE}"
+        )
         setContent { BondTheme { SellerApp() } }
     }
 
@@ -195,13 +200,16 @@ class MainActivity : ComponentActivity() {
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        BrandLogos(Modifier.weight(1f), height = 28.dp)
-                        TextButton(onClick = { LocationTrackingService.stop(context); SessionStore.clear(context); session = null }) { Text("Salir") }
+                Column(Modifier.fillMaxWidth()) {
+                    TestingEnvironmentBanner()
+                    Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            BrandLogos(Modifier.weight(1f), height = 28.dp)
+                            TextButton(onClick = { LocationTrackingService.stop(context); SessionStore.clear(context); session = null }) { Text("Salir") }
+                        }
+                        Text(session!!.sellerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                        Text(session!!.businessName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(session!!.sellerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
-                    Text(session!!.businessName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             bottomBar = {

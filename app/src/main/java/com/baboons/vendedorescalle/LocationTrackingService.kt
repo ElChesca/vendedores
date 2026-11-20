@@ -109,8 +109,11 @@ class LocationTrackingService : Service(), LocationListener {
     private fun startForegroundCompat() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("Bond Vendedores")
-            .setContentText("Jornada activa: seguimiento de ubicacion encendido")
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(
+                if (BuildConfig.IS_TESTING) "TESTING · jornada activa: seguimiento de ubicacion encendido"
+                else "Jornada activa: seguimiento de ubicacion encendido"
+            )
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
