@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
-fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>) {
+fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>, onCustomer: (SellerCustomer) -> Unit = {}) {
     val context = LocalContext.current
     val db = remember { OfflineLocationDb(context) }
     val route = remember(points) {
@@ -201,7 +201,15 @@ fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>) {
             route.firstOrNull()?.let { Marker(state = MarkerState(position = it), title = "Inicio del recorrido") }
             if (route.size > 1) Marker(state = MarkerState(position = route.last()), title = "Última ubicación")
             customerMarkers.forEach { (customer, position) ->
-                Marker(state = MarkerState(position = position), title = customer.name, snippet = customer.address)
+                Marker(
+                    state = MarkerState(position = position),
+                    title = customer.name,
+                    snippet = customer.address,
+                    onClick = {
+                        onCustomer(customer)
+                        true
+                    }
+                )
             }
         }
         if (route.isEmpty() && customerMarkers.isEmpty()) {

@@ -53,4 +53,6 @@ dependencies {
     implementation("com.google.maps.android:maps-compose:7.0.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }

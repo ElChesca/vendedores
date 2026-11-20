@@ -13,3 +13,14 @@ val Cloud = Color(0xFFF7F8F8)
 val Ink = Color(0xFF111111)
 val MutedLight = Color(0xFF5C5C5C)
 val MutedDark = Color(0xFFB3B3B3)
+
+val SemaforoVerde = Color(0xFF1F8A4C)
+val SemaforoAmarillo = Color(0xFFC48A12)
+val SemaforoRojo = Color(0xFFD64545)
+
+fun semaforoColor(value: String?): Color? = when (value) {
+    "verde" -> SemaforoVerde
+    "amarillo" -> SemaforoAmarillo
+    "rojo" -> SemaforoRojo
+    else -> null
+}
