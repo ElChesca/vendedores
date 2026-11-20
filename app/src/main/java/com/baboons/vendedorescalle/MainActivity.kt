@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.baboons.vendedorescalle.ui.components.BrandLogos
 import com.baboons.vendedorescalle.ui.components.ErrorBanner
+import com.baboons.vendedorescalle.ui.screens.CustomerDetailScreen
 import com.baboons.vendedorescalle.ui.screens.LoginScreen
 import com.baboons.vendedorescalle.ui.screens.MapScreen
 import com.baboons.vendedorescalle.ui.screens.PlanScreen
@@ -114,6 +115,8 @@ class MainActivity : ComponentActivity() {
         var customers by remember { mutableStateOf(listOf<SellerCustomer>()) }
         var plan by remember { mutableStateOf(listOf<PlanEntry>()) }
         var summary by remember { mutableStateOf<SellerSummary?>(null) }
+        var selectedCustomer by remember { mutableStateOf<SellerCustomer?>(null) }
+        var purchasesState by remember { mutableStateOf<CustomerPurchasesState>(CustomerPurchasesState.Loading) }
         var tab by remember { mutableStateOf(SellerTab.TODAY) }
         var notice by remember { mutableStateOf<String?>(null) }
         var prospectDialog by remember { mutableStateOf(false) }
@@ -134,6 +137,16 @@ class MainActivity : ComponentActivity() {
         val snackbarHostState = remember { SnackbarHostState() }
 
         fun fail(message: String?) { busy = false; error = message }
+        fun openCustomer(customer: SellerCustomer) {
+            val current = session ?: return
+            selectedCustomer = customer
+            purchasesState = CustomerPurchasesState.Loading
+            val requestedId = customer.id
+            BaboonsApi.pedidosCliente(current, requestedId) { result ->
+                if (selectedCustomer?.id != requestedId) return@pedidosCliente
+                purchasesState = customerPurchasesState(result.status, result.error, result.json)
+            }
+        }
         fun loadDay(s: SellerSession) {
             busy = true
             BaboonsApi.jornada(s, today) { result ->
@@ -196,7 +209,7 @@ class MainActivity : ComponentActivity() {
                     SellerTab.entries.forEach { item ->
                         NavigationBarItem(
                             selected = tab == item,
-                            onClick = { tab = item },
+                            onClick = { selectedCustomer = null; tab = item },
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) }
                         )
@@ -206,7 +219,7 @@ class MainActivity : ComponentActivity() {
             floatingActionButton = {
                 // En Mapa se oculta para no superponerse con "Mi ubicación";
                 // el alta de potenciales sigue disponible en Jornada, Proyectado e Indicadores.
-                if (jornadaAbierta && tab != SellerTab.MAP) {
+                if (jornadaAbierta && tab != SellerTab.MAP && selectedCustomer == null) {
                     FloatingActionButton(onClick = { prospectDialog = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
                         Icon(Icons.Outlined.Add, contentDescription = "Nuevo potencial")
                     }
@@ -216,7 +229,15 @@ class MainActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().padding(inset)) {
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 error?.let { ErrorBanner(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
-                when (tab) {
+                val customer = selectedCustomer
+                if (customer != null) {
+                    CustomerDetailScreen(
+                        customer = customer,
+                        purchasesState = purchasesState,
+                        onBack = { selectedCustomer = null },
+                        onRetry = { openCustomer(customer) }
+                    )
+                } else when (tab) {
                     SellerTab.TODAY -> TodayScreen(session!!, today, zona, jornadaAbierta, messages, pendingRequired, busy,
                         onStart = { withLocationPermission {
                             val hasLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -253,7 +274,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         })
-                    SellerTab.MAP -> MapScreen(routePoints, customers.filter { customer -> plan.any { it.customerId == customer.id } })
+                    SellerTab.MAP -> MapScreen(
+                        routePoints,
+                        customers.filter { customer -> plan.any { it.customerId == customer.id } },
+                        onCustomer = ::openCustomer
+                    )
                     SellerTab.PLAN -> PlanScreen(customers, plan, jornadaAbierta, pendingRequired, busy, onVisit = { entry, result, notes ->
                         BaboonsApi.registrarVisita(session!!, today, entry.proyectadoId, entry.customerId, result, notes, UUID.randomUUID().toString()) { response ->
                             if (response.error != null) error = response.error else { notice = "Visita registrada"; loadDay(session!!) }
@@ -273,7 +298,7 @@ class MainActivity : ComponentActivity() {
                             val list = extractArray(result.json, result.array, "clientes").toObjectList().map { SellerCustomer.fromJson(it) }
                             callback(list)
                         }
-                    })
+                    }, onOpenCustomer = ::openCustomer)
                     SellerTab.STATS -> StatsScreen(summary, onRange = { from, until ->
                         BaboonsApi.tablero(session!!, from, until) { result ->
                             if (result.error != null) error = result.error else summary = SellerSummary.fromJson(result.json ?: JSONObject())

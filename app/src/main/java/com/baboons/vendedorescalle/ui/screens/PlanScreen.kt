@@ -4,6 +4,7 @@ package com.baboons.vendedorescalle.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,7 +61,8 @@ fun PlanScreen(
     onSave: (Map<Long, Double>) -> Unit,
     onRefresh: () -> Unit,
     onAddException: (Long, String) -> Unit,
-    onSearchCustomers: (String, (List<SellerCustomer>) -> Unit) -> Unit
+    onSearchCustomers: (String, (List<SellerCustomer>) -> Unit) -> Unit,
+    onOpenCustomer: (SellerCustomer) -> Unit
 ) {
     val selected = remember { mutableStateMapOf<Long, Double>() }
     var visitTarget by remember { mutableStateOf<PlanEntry?>(null) }
@@ -95,8 +97,11 @@ fun PlanScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(customer.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
                                 Text(customer.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (planEntry != null) {
-                                    TextButton(onClick = { visitTarget = planEntry }) { Text("Registrar visita") }
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    TextButton(onClick = { onOpenCustomer(customer) }) { Text("Ver ficha") }
+                                    if (planEntry != null) {
+                                        TextButton(onClick = { visitTarget = planEntry }) { Text("Registrar visita") }
+                                    }
                                 }
                             }
                             if (amount != null) {
