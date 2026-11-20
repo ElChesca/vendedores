@@ -2,7 +2,7 @@
 
 Estado: endpoints del MVP integrados en Baboons mediante el PR #427, ya mergeado; el SQL de `migrations/vendedores_calle_mvp.sql` fue ejecutado en Neon. Todas las rutas usan JWT Baboons y el prefijo `/api`.
 
-Base de la app: `https://concesionarias.baboons.com.ar/api/negocios/{negocio_id}`. Enviar `Authorization: Bearer <jwt_token>` y `Content-Type: application/json`.
+Base de la app en produccion: `https://concesionarias.baboons.com.ar/api/negocios/{negocio_id}`. La variante Android de testing (flavor Gradle `qa`, `applicationId` `com.baboons.vendedorescalle.testing`) usa el mismo contrato en `https://testing.baboons.com.ar/api/negocios/{negocio_id}`. Enviar `Authorization: Bearer <jwt_token>` y `Content-Type: application/json`.
 
 ## Endpoints
 

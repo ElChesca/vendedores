@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.baboons.vendedorescalle.ui.components.BrandLockup
 import com.baboons.vendedorescalle.ui.components.ErrorBanner
 import com.baboons.vendedorescalle.ui.components.PrimaryButton
+import com.baboons.vendedorescalle.ui.components.TestingEnvironmentBanner
 
 @Composable
 fun LoginScreen(
@@ -45,6 +46,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        TestingEnvironmentBanner()
         BrandLockup()
         Spacer(Modifier.height(28.dp))
         Text("Iniciar sesion", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)

@@ -24,11 +24,29 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.baboons.vendedorescalle.BuildConfig
+
+@Composable
+fun TestingEnvironmentBanner(modifier: Modifier = Modifier) {
+    if (!BuildConfig.IS_TESTING) return
+    val host = BuildConfig.BABOONS_API_BASE.substringAfter("://").substringBefore("/")
+    Surface(modifier = modifier.fillMaxWidth(), color = Color(0xFFFFE08A)) {
+        Text(
+            "TESTING · $host",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            color = Color(0xFF3D2A00),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+    }
+}
 
 @Composable
 fun SectionTitle(text: String, detail: String? = null, modifier: Modifier = Modifier) {
