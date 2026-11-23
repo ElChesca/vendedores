@@ -14,6 +14,7 @@ Aplicacion Android nativa para que cada vendedor inicie su jornada, consulte y c
 
 - Inicio de sesion con JWT de Baboons.
 - Apertura/cierre de jornada, mensajes con acuse, proyectado de clientes habilitados, registro de visitas y alta de potenciales.
+- Verificación de datos del cliente (contacto y ubicación). Queda pendiente de aprobación en el ERP. Si no hay red, se guarda y se reintenta con la misma clave.
 - Seguimiento de ubicacion con notificacion visible, cola local para sincronizacion y mapa nativo de Google Maps.
 - Indicadores diarios de cobertura, conversion, venta y avance del objetivo.
 

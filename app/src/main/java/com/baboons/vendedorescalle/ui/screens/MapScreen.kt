@@ -3,8 +3,12 @@ package com.baboons.vendedorescalle.ui.screens
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MyLocation
@@ -13,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baboons.vendedorescalle.MapPoint
 import com.baboons.vendedorescalle.OfflineLocationDb
@@ -53,7 +59,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
-fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>, onCustomer: (SellerCustomer) -> Unit = {}) {
+fun MapScreen(
+    points: List<MapPoint>,
+    customers: List<SellerCustomer>,
+    onCustomer: (SellerCustomer) -> Unit = {},
+    onVerify: (SellerCustomer) -> Unit = {}
+) {
     val context = LocalContext.current
     val db = remember { OfflineLocationDb(context) }
     val route = remember(points) {
@@ -89,7 +100,12 @@ fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>, onCustome
     var fittedWithSeller by remember { mutableStateOf(false) }
     var fittedWithCustomers by remember { mutableStateOf(false) }
     var userMovedCamera by remember { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<SellerCustomer?>(null) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(customers) {
+        if (picked != null && customers.none { it.id == picked?.id }) picked = null
+    }
 
     LaunchedEffect(hasPermission) {
         resolveSellerLocation(context, db)?.let { sellerLocation = it }
@@ -195,6 +211,7 @@ fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>, onCustome
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false
             ),
+            onMapClick = { picked = null },
             onMapLoaded = { mapLoaded = true }
         ) {
             if (route.size > 1) Polyline(points = route, color = LogicaAccent, width = 8f)
@@ -206,10 +223,30 @@ fun MapScreen(points: List<MapPoint>, customers: List<SellerCustomer>, onCustome
                     title = customer.name,
                     snippet = customer.address,
                     onClick = {
-                        onCustomer(customer)
+                        picked = customer
                         true
                     }
                 )
+            }
+        }
+        picked?.let { customer ->
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 16.dp, end = 16.dp, bottom = 88.dp).fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 6.dp
+            ) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(customer.name.ifBlank { "Cliente" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    if (customer.address.isNotBlank()) {
+                        Text(customer.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { onCustomer(customer) }) { Text("Ver ficha") }
+                        TextButton(onClick = { onVerify(customer) }) { Text("Verificar datos") }
+                        TextButton(onClick = { picked = null }) { Text("Cerrar") }
+                    }
+                }
             }
         }
         if (route.isEmpty() && customerMarkers.isEmpty()) {

@@ -40,7 +40,8 @@ fun CustomerDetailScreen(
     customer: SellerCustomer,
     purchasesState: CustomerPurchasesState,
     onBack: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onVerify: () -> Unit
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -71,6 +72,13 @@ fun CustomerDetailScreen(
                     }
                 }
             }
+        }
+        item {
+            OutlinedButton(
+                onClick = onVerify,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) { Text("Verificar datos") }
         }
         if (purchasesState !is CustomerPurchasesState.Unavailable) {
             item { SectionTitle("Compras", "Pedidos confirmados del cliente") }

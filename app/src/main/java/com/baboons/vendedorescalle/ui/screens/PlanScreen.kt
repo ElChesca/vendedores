@@ -62,7 +62,8 @@ fun PlanScreen(
     onRefresh: () -> Unit,
     onAddException: (Long, String) -> Unit,
     onSearchCustomers: (String, (List<SellerCustomer>) -> Unit) -> Unit,
-    onOpenCustomer: (SellerCustomer) -> Unit
+    onOpenCustomer: (SellerCustomer) -> Unit,
+    onVerify: (SellerCustomer) -> Unit
 ) {
     val selected = remember { mutableStateMapOf<Long, Double>() }
     var visitTarget by remember { mutableStateOf<PlanEntry?>(null) }
@@ -99,6 +100,7 @@ fun PlanScreen(
                                 Text(customer.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     TextButton(onClick = { onOpenCustomer(customer) }) { Text("Ver ficha") }
+                                    TextButton(onClick = { onVerify(customer) }) { Text("Verificar datos") }
                                     if (planEntry != null) {
                                         TextButton(onClick = { visitTarget = planEntry }) { Text("Registrar visita") }
                                     }

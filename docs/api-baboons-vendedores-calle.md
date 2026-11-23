@@ -21,7 +21,9 @@ Base de la app en produccion: `https://concesionarias.baboons.com.ar/api/negocio
 | `GET` | `/vendedores-calle/proyectado?fecha=YYYY-MM-DD` | Vendedor | Consulta los renglones proyectados. |
 | `PUT` | `/vendedores-calle/proyectado` | Vendedor | Guarda `fecha` e `items: [{cliente_id, importe_estimado}]`. Requiere jornada abierta y aceptar mensajes obligatorios. |
 | `POST` | `/vendedores-calle/proyectado/excepciones` | Vendedor | Agrega `fecha`, `cliente_id` y `motivo` para cliente fuera de zona. La busqueda de esos clientes es `GET /vendedores-calle/clientes-buscar`. |
-| `POST` | `/vendedores-calle/visitas` | Vendedor | Registra `fecha`, `proyectado_id`, `cliente_id`, `resultado`, `observaciones` e `idempotency_key`. |
+| `POST` | `/vendedores-calle/visitas` | Vendedor | Registra `fecha`, `proyectado_id`, `cliente_id`, `resultado`, `observaciones` e `idempotency_key`. Responde `id` de la visita. |
+| `GET` | `/vendedores-calle/clientes/{cliente_id}/ficha` | Vendedor | Ficha para verificar: `cliente_id`, `nombre`, `odoo_partner_id`, `telefono`, `email`, `direccion`, `dni`, `tipo_documento`, `ciudad`, `codigo_postal`, `latitud`, `longitud` y `ultima_verificacion` (`id`, `estado`, `creado_en`) o `null`. 404 si el cliente no es del negocio: la app arma la pantalla con los datos locales. 503 si falta la tabla: mensaje claro y los datos locales. |
+| `POST` | `/vendedores-calle/clientes/{cliente_id}/verificacion` | Vendedor | Propone corrección. `idempotency_key` es obligatorio. Latitud y longitud van juntas. Tiene que venir al menos un dato o el PIN. 201 `{id, estado: "pendiente"}`. 200 `{id, estado, idempotente: true}` si la clave ya existía. 503 si falta la tabla: la app conserva la carga y reintenta. Un 409 se muestra tal cual. |
 | `POST` | `/vendedores-calle/prospectos` | Vendedor | Crea lead CRM con contacto, direccion y coordenadas; acepta `idempotency_key` y envia correo a admins del negocio. |
 | `POST` | `/vendedores-calle/objetivos` | Admin | Guarda `vendedor_id`, `desde`, `hasta`, `importe_objetivo`; no acepta periodos superpuestos. |
 | `GET` | `/vendedores-calle/tablero?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&vendedor_id=...` | Vendedor/Admin | Proyectados, visitados, clientes con venta, importe proyectado/vendido y porcentajes de cobertura, conversion, objetivo y venta contra proyectado. Admin omite `vendedor_id` para vista 360. |
@@ -57,6 +59,31 @@ Base de la app en produccion: `https://concesionarias.baboons.com.ar/api/negocio
 ```
 
 Una alta nueva responde `201` con `lead_id` y `email_enviado`. Un duplicado por telefono o email responde `200` con `duplicado: true`. Si no hay email de administrador o falla SMTP, el lead queda guardado y `email_enviado` es `false`.
+
+## Verificación de cliente
+
+`POST /vendedores-calle/clientes/{cliente_id}/verificacion`:
+
+```json
+{
+  "latitud": -33.3012,
+  "longitud": -66.3371,
+  "precision_m": 12.5,
+  "telefono": "2664000000",
+  "email": "contacto@example.com",
+  "direccion": "Av. Ejemplo 123",
+  "dni": "20123456783",
+  "ciudad": "San Luis",
+  "codigo_postal": "5700",
+  "observaciones": "Local en la esquina",
+  "visita_id": 15,
+  "idempotency_key": "6f1c3c4e-2b1a-4f0e-9c1d-0a0b0c0d0e0f"
+}
+```
+
+`visita_id` es opcional y, si la app registró una visita de ese cliente en el día, manda el `id` devuelto por `POST /visitas`. `idempotency_key` es un UUID de hasta 120 caracteres y es obligatorio. Un string vacío no cuenta como dato. La misma clave se reutiliza si no hubo red o si el ERP responde 503 porque todavía no existe la tabla `clientes_verificaciones`. Una precisión peor que 50 m se advierte en la pantalla y no bloquea el envío. El alta queda en `pendiente` hasta que administración la apruebe; la app no edita la ficha directo. Si la clave ya existía, el POST responde 200 con el `estado` actual y `idempotente: true`, sin pisar la propuesta original.
+
+Contrato de referencia: PR #561 de ElChesca/MultinegocioBaboons.
 
 ## Datos maestros y fuente de ventas
 
