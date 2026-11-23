@@ -72,19 +72,44 @@ suspend fun fusedCurrentLocation(context: Context): LatLng? {
     }
 }
 
-private suspend fun awaitLocation(task: Task<Location>?): LatLng? {
+/** GPS actual en alta precisión, con la exactitud en metros, para fijar la verificación. */
+suspend fun fusedHighAccuracyFix(context: Context): LocationFix? {
+    if (!hasLocationPermission(context)) return null
+    return runCatching {
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val cancellation = CancellationTokenSource()
+        try {
+            val current = awaitRawLocation(
+                runCatching {
+                    client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellation.token)
+                }.getOrNull()
+            )?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
+            val chosen = current ?: awaitRawLocation(runCatching { client.lastLocation }.getOrNull())
+                ?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
+            chosen?.let { LocationFix(it.latitude, it.longitude, it.accuracy) }
+        } finally {
+            cancellation.cancel()
+        }
+    }.getOrNull()
+}
+
+private suspend fun awaitRawLocation(task: Task<Location>?): Location? {
     if (task == null) return null
     return suspendCancellableCoroutine { continuation ->
         task.addOnSuccessListener { location ->
-            val point = location?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
-                ?.let { LatLng(it.latitude, it.longitude) }
-            if (continuation.isActive) continuation.resume(point)
+            if (continuation.isActive) continuation.resume(location)
         }.addOnFailureListener {
             if (continuation.isActive) continuation.resume(null)
         }.addOnCanceledListener {
             if (continuation.isActive) continuation.resume(null)
         }
     }
+}
+
+private suspend fun awaitLocation(task: Task<Location>?): LatLng? {
+    val location = awaitRawLocation(task) ?: return null
+    return location.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
+        ?.let { LatLng(it.latitude, it.longitude) }
 }
 
 /**

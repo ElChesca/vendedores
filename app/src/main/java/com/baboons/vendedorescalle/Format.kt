@@ -49,6 +49,9 @@ fun orderStateLabel(state: String): String = when (state.trim().lowercase(locale
 fun formatOrderDate(raw: String): String {
     val value = raw.trim()
     if (value.isEmpty()) return ""
+    val output = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", localeAr)
+    val offset = runCatching { java.time.OffsetDateTime.parse(value) }.getOrNull()
+    if (offset != null) return offset.format(output)
     val dateTimePatterns = listOf(
         "yyyy-MM-dd HH:mm:ss",
         "yyyy-MM-dd HH:mm",
@@ -56,7 +59,6 @@ fun formatOrderDate(raw: String): String {
         "yyyy-MM-dd'T'HH:mm:ss.SSS",
         "yyyy-MM-dd'T'HH:mm"
     )
-    val output = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", localeAr)
     for (pattern in dateTimePatterns) {
         val parsed = runCatching {
             java.time.LocalDateTime.parse(value, java.time.format.DateTimeFormatter.ofPattern(pattern))

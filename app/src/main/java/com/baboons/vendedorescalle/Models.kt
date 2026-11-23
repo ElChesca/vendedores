@@ -36,7 +36,12 @@ data class SellerCustomer(
     val address: String,
     val phone: String,
     val latitude: Double?,
-    val longitude: Double?
+    val longitude: Double?,
+    val email: String = "",
+    val dni: String = "",
+    val city: String = "",
+    val postalCode: String = "",
+    val documentType: String = ""
 ) {
     companion object {
         fun fromJson(json: JSONObject) = SellerCustomer(
@@ -45,7 +50,12 @@ data class SellerCustomer(
             address = json.optString("direccion"),
             phone = json.optString("telefono"),
             latitude = json.numberOrNull("latitud"),
-            longitude = json.numberOrNull("longitud")
+            longitude = json.numberOrNull("longitud"),
+            email = json.textOrEmpty("email"),
+            dni = json.textOrEmpty("dni"),
+            city = json.textOrEmpty("ciudad"),
+            postalCode = json.textOrEmpty("codigo_postal"),
+            documentType = json.textOrEmpty("tipo_documento")
         )
     }
 }
@@ -283,6 +293,11 @@ private fun JSONObject.optionalNumber(key: String): Double? = numberOrNull(key)
 private fun JSONObject.optionalString(key: String): String? {
     if (!has(key) || isNull(key)) return null
     return optString(key).takeIf { it.isNotBlank() }
+}
+
+private fun JSONObject.textOrEmpty(key: String): String {
+    if (!has(key) || isNull(key)) return ""
+    return optString(key).trim()
 }
 
 private fun JSONObject.longOrNull(key: String): Long? {

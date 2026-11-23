@@ -12,7 +12,7 @@ La app se autentica contra Baboons. Odoo 19 se integra a traves del ERP Baboons;
 1. Inicia sesion y pulsa **Comenzar jornada**. La app muestra mensajes obligatorios del dia y registra la aceptacion individual. Se propone impedir el inicio del proyectado hasta confirmar esos mensajes; una contingencia debe poder ser habilitada por administracion y quedar auditada.
 2. La app obtiene la zona asignada al vendedor para la fecha y muestra solamente los clientes habilitados para esa zona. El vendedor arma su proyectado con esos clientes. Las visitas fuera de zona se agregan como excepciones, con motivo obligatorio y trazabilidad.
 3. Durante la jornada, la app registra ubicacion con hora, precision y estado de jornada. Las ubicaciones se guardan temporalmente en el dispositivo cuando falta conexion y se sincronizan luego, conservando su hora de captura.
-4. En cada visita, registra resultado y observaciones; la venta se vincula a los datos confirmados por ERP cuando esten disponibles. Puede dar de alta un potencial con los mismos campos de cliente; el backend notifica automaticamente a administracion por correo.
+4. En cada visita, registra resultado y observaciones; la venta se vincula a los datos confirmados por ERP cuando esten disponibles. Puede dar de alta un potencial con los mismos campos de cliente; el backend notifica automaticamente a administracion por correo. Puede verificar los datos del cliente (contacto y ubicación tomada en el lugar). La app envía la propuesta y el ERP la deja pendiente de aprobación; no edita la ficha directo.
 5. Cierra jornada. La app presenta proyectado, visitado y vendido, junto con el avance del objetivo.
 
 ## Funciones de administracion

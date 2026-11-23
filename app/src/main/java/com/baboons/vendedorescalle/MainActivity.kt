@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,8 +62,11 @@ import com.baboons.vendedorescalle.ui.screens.MapScreen
 import com.baboons.vendedorescalle.ui.screens.PlanScreen
 import com.baboons.vendedorescalle.ui.screens.StatsScreen
 import com.baboons.vendedorescalle.ui.screens.TodayScreen
+import com.baboons.vendedorescalle.ui.screens.VerifyCustomerScreen
 import com.baboons.vendedorescalle.ui.theme.BondTheme
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -133,15 +137,183 @@ class MainActivity : ComponentActivity() {
         var prospectProvince by remember { mutableStateOf("") }
         var prospectLocality by remember { mutableStateOf("") }
         var prospectNotes by remember { mutableStateOf("") }
+        var verifyCustomer by remember { mutableStateOf<SellerCustomer?>(null) }
+        var verifyFromDetail by remember { mutableStateOf(false) }
+        var ficha by remember { mutableStateOf<CustomerFicha?>(null) }
+        var fichaNote by remember { mutableStateOf<String?>(null) }
+        var fichaNoteIsError by remember { mutableStateOf(false) }
+        var fichaLoading by remember { mutableStateOf(false) }
+        var locationFix by remember { mutableStateOf<LocationFix?>(null) }
+        var locating by remember { mutableStateOf(false) }
+        var locationError by remember { mutableStateOf<String?>(null) }
+        var verifyBusy by remember { mutableStateOf(false) }
+        var verifyError by remember { mutableStateOf<String?>(null) }
+        var submittedEstado by remember { mutableStateOf<String?>(null) }
+        var submittedIdempotent by remember { mutableStateOf(false) }
+        var pendingVerification by remember { mutableStateOf<PendingVerification?>(null) }
         val today = remember { LocalDate.now().toString() }
         val dayStart = remember(today) { LocalDate.parse(today).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
         val dayEnd = remember(today) { LocalDate.parse(today).plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
         val db = remember { OfflineLocationDb(context) }
+        val outbox = remember { VerificationOutbox(context) }
+        val dailyVisits = remember { DailyVisitStore(context) }
+        val verificationInFlight = remember { mutableSetOf<String>() }
+        val scope = rememberCoroutineScope()
         var routePoints by remember { mutableStateOf(db.allPoints(dayStart, dayEnd)) }
         val pendingRequired = messages.any { it.required && it.accepted != true }
         val snackbarHostState = remember { SnackbarHostState() }
 
         fun fail(message: String?) { busy = false; error = message }
+        fun sendVerification(seller: SellerSession, pending: PendingVerification) {
+            val key = pending.idempotencyKey
+            if (!verificationInFlight.add(key)) {
+                if (verifyCustomer?.id == pending.customerId) verifyBusy = true
+                return
+            }
+            if (verifyCustomer?.id == pending.customerId) {
+                verifyBusy = true
+                verifyError = null
+            }
+            BaboonsApi.enviarVerificacion(seller, pending.customerId, pending.toBody()) { result ->
+                verificationInFlight.remove(key)
+                val outcome = interpretVerification(result)
+                val visible = verifyCustomer?.id == pending.customerId
+                when (outcome) {
+                    is VerificationSubmitResult.Accepted -> {
+                        outbox.remove(pending.customerId)
+                        if (visible) {
+                            verifyBusy = false
+                            verifyError = null
+                            pendingVerification = null
+                            submittedEstado = outcome.estado
+                            submittedIdempotent = outcome.idempotent
+                            ficha = (ficha ?: verifyCustomer?.toFicha())?.copy(
+                                lastVerification = CustomerVerificationStatus(outcome.estado, null, outcome.id)
+                            )
+                        } else {
+                            notice = if (outcome.estado.equals("pendiente", ignoreCase = true)) {
+                                "Enviado, pendiente de aprobación"
+                            } else {
+                                "Verificación enviada (${verificationEstadoLabel(outcome.estado)})"
+                            }
+                        }
+                    }
+                    is VerificationSubmitResult.Offline -> {
+                        if (visible) {
+                            verifyBusy = false
+                            verifyError = outcome.message
+                            pendingVerification = outbox.get(pending.customerId)
+                        }
+                    }
+                    is VerificationSubmitResult.Rejected -> {
+                        if (!shouldKeepPending(outcome)) outbox.remove(pending.customerId)
+                        if (visible) {
+                            verifyBusy = false
+                            verifyError = outcome.message
+                            pendingVerification = outbox.get(pending.customerId)
+                        }
+                    }
+                }
+            }
+        }
+        fun flushPending(seller: SellerSession) {
+            outbox.all().forEach { pending -> sendVerification(seller, pending) }
+        }
+        fun openVerify(customer: SellerCustomer, fromDetail: Boolean) {
+            val pending = outbox.get(customer.id)
+            verifyFromDetail = fromDetail
+            pendingVerification = pending
+            locationFix = pending?.toFix()?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
+            ficha = null
+            fichaNote = null
+            fichaNoteIsError = false
+            fichaLoading = false
+            locating = false
+            locationError = null
+            verifyBusy = false
+            verifyError = null
+            submittedEstado = null
+            submittedIdempotent = false
+            verifyCustomer = customer
+        }
+        fun closeVerify() {
+            verifyCustomer = null
+            verifyFromDetail = false
+            verifyBusy = false
+            locating = false
+        }
+        fun loadFicha(customer: SellerCustomer) {
+            val current = session ?: return
+            fichaLoading = true
+            val requestedId = customer.id
+            BaboonsApi.fichaCliente(current, requestedId) { result ->
+                if (verifyCustomer?.id != requestedId) return@fichaCliente
+                fichaLoading = false
+                val resolved = resolveCustomerFicha(result.status, result.error, result.json, customer)
+                ficha = resolved.ficha
+                fichaNote = resolved.note
+                fichaNoteIsError = resolved.noteIsError
+            }
+        }
+        fun submitVerification(draft: VerificationDraft) {
+            val customer = verifyCustomer ?: return
+            val current = session ?: return
+            val fix = locationFix?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) }
+            val fieldErrors = verificationFieldErrors(draft.phone, draft.email, draft.dni)
+            val payloadError = verificationPayloadError(draft, fix)
+            if (fieldErrors.isNotEmpty() || payloadError != null) {
+                verifyError = (fieldErrors + listOfNotNull(payloadError)).joinToString(" ")
+                return
+            }
+            val pending = PendingVerification(
+                customerId = customer.id,
+                idempotencyKey = pendingVerification?.idempotencyKey ?: UUID.randomUUID().toString(),
+                latitude = fix?.latitude,
+                longitude = fix?.longitude,
+                accuracyMeters = fix?.accuracyMeters?.toDouble(),
+                phone = draft.phone.trim(),
+                email = draft.email.trim(),
+                address = draft.address.trim(),
+                dni = normalizeDni(draft.dni),
+                city = draft.city.trim(),
+                postalCode = draft.postalCode.trim(),
+                notes = draft.notes.trim(),
+                visitId = dailyVisits.get(today, customer.id),
+                savedAtMs = System.currentTimeMillis()
+            )
+            outbox.save(pending)
+            pendingVerification = pending
+            submittedEstado = null
+            submittedIdempotent = false
+            sendVerification(current, pending)
+        }
+        fun retryVerification() {
+            val current = session ?: return
+            val pending = pendingVerification ?: verifyCustomer?.let { outbox.get(it.id) } ?: return
+            pendingVerification = pending
+            locationFix = pending.toFix()?.takeIf { isValidMapCoordinate(it.latitude, it.longitude) } ?: locationFix
+            sendVerification(current, pending)
+        }
+        fun fixLocation() {
+            if (verifyCustomer == null) return
+            if (!hasLocationPermission(context)) {
+                locationError = "Para fijar la ubicación tenés que habilitar el permiso de ubicación."
+                return
+            }
+            locating = true
+            locationError = null
+            scope.launch {
+                val fix = withTimeoutOrNull(12_000) { fusedHighAccuracyFix(context) }
+                locating = false
+                if (verifyCustomer == null) return@launch
+                if (fix == null) {
+                    locationError = "No se pudo obtener el GPS. Intentá de nuevo en un lugar con mejor señal."
+                } else {
+                    locationFix = fix
+                    locationError = null
+                }
+            }
+        }
         fun openCustomer(customer: SellerCustomer) {
             val current = session ?: return
             selectedCustomer = customer
@@ -153,6 +325,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         fun loadDay(s: SellerSession) {
+            flushPending(s)
             busy = true
             BaboonsApi.jornada(s, today) { result ->
                 busy = false
@@ -180,6 +353,13 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(notice) { notice?.let { snackbarHostState.showSnackbar(it); notice = null } }
         LaunchedEffect(session) { session?.let(::loadDay) }
+        LaunchedEffect(verifyCustomer?.id) {
+            val customer = verifyCustomer ?: return@LaunchedEffect
+            val current = session ?: return@LaunchedEffect
+            loadFicha(customer)
+            val pending = pendingVerification
+            if (pending != null && pending.customerId == customer.id) sendVerification(current, pending)
+        }
         LaunchedEffect(tab, jornadaAbierta) {
             if (tab == SellerTab.MAP && jornadaAbierta) while (true) { routePoints = db.allPoints(dayStart, dayEnd); delay(15_000) }
         }
@@ -205,7 +385,13 @@ class MainActivity : ComponentActivity() {
                     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             BrandLogos(Modifier.weight(1f), height = 28.dp)
-                            TextButton(onClick = { LocationTrackingService.stop(context); SessionStore.clear(context); session = null }) { Text("Salir") }
+                            TextButton(onClick = {
+                                LocationTrackingService.stop(context)
+                                SessionStore.clear(context)
+                                verifyCustomer = null
+                                selectedCustomer = null
+                                session = null
+                            }) { Text("Salir") }
                         }
                         Text(session!!.sellerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
                         Text(session!!.businessName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -217,7 +403,12 @@ class MainActivity : ComponentActivity() {
                     SellerTab.entries.forEach { item ->
                         NavigationBarItem(
                             selected = tab == item,
-                            onClick = { selectedCustomer = null; tab = item },
+                            onClick = {
+                                selectedCustomer = null
+                                verifyCustomer = null
+                                verifyFromDetail = false
+                                tab = item
+                            },
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) }
                         )
@@ -227,7 +418,7 @@ class MainActivity : ComponentActivity() {
             floatingActionButton = {
                 // En Mapa se oculta para no superponerse con "Mi ubicación";
                 // el alta de potenciales sigue disponible en Jornada, Proyectado e Indicadores.
-                if (jornadaAbierta && tab != SellerTab.MAP && selectedCustomer == null) {
+                if (jornadaAbierta && tab != SellerTab.MAP && selectedCustomer == null && verifyCustomer == null) {
                     FloatingActionButton(onClick = { prospectDialog = true }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
                         Icon(Icons.Outlined.Add, contentDescription = "Nuevo potencial")
                     }
@@ -237,13 +428,37 @@ class MainActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().padding(inset)) {
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 error?.let { ErrorBanner(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+                val verifying = verifyCustomer
                 val customer = selectedCustomer
-                if (customer != null) {
+                if (verifying != null) {
+                    VerifyCustomerScreen(
+                        customer = verifying,
+                        ficha = ficha,
+                        fichaNote = fichaNote,
+                        fichaNoteIsError = fichaNoteIsError,
+                        fichaLoading = fichaLoading,
+                        locationFix = locationFix,
+                        locating = locating,
+                        locationError = locationError,
+                        visitId = dailyVisits.get(today, verifying.id),
+                        pending = pendingVerification,
+                        busy = verifyBusy,
+                        error = verifyError,
+                        submittedEstado = submittedEstado,
+                        submittedIdempotent = submittedIdempotent,
+                        onBack = { if (verifyFromDetail) closeVerify() else { closeVerify(); selectedCustomer = null } },
+                        onFixLocation = { fixLocation() },
+                        onLocationError = { locationError = it },
+                        onSubmit = { submitVerification(it) },
+                        onRetry = { retryVerification() }
+                    )
+                } else if (customer != null) {
                     CustomerDetailScreen(
                         customer = customer,
                         purchasesState = purchasesState,
                         onBack = { selectedCustomer = null },
-                        onRetry = { openCustomer(customer) }
+                        onRetry = { openCustomer(customer) },
+                        onVerify = { openVerify(customer, fromDetail = true) }
                     )
                 } else when (tab) {
                     SellerTab.TODAY -> TodayScreen(session!!, today, zona, jornadaAbierta, messages, pendingRequired, busy,
@@ -285,11 +500,16 @@ class MainActivity : ComponentActivity() {
                     SellerTab.MAP -> MapScreen(
                         routePoints,
                         customers.filter { customer -> plan.any { it.customerId == customer.id } },
-                        onCustomer = ::openCustomer
+                        onCustomer = ::openCustomer,
+                        onVerify = { openVerify(it, fromDetail = false) }
                     )
                     SellerTab.PLAN -> PlanScreen(customers, plan, jornadaAbierta, pendingRequired, busy, onVisit = { entry, result, notes ->
                         BaboonsApi.registrarVisita(session!!, today, entry.proyectadoId, entry.customerId, result, notes, UUID.randomUUID().toString()) { response ->
-                            if (response.error != null) error = response.error else { notice = "Visita registrada"; loadDay(session!!) }
+                            if (response.error != null) error = response.error else {
+                                response.json?.optLong("id")?.takeIf { it > 0 }?.let { dailyVisits.remember(today, entry.customerId, it) }
+                                notice = "Visita registrada"
+                                loadDay(session!!)
+                            }
                         }
                     }, onSave = { amounts ->
                         val items = JSONArray()
@@ -306,7 +526,7 @@ class MainActivity : ComponentActivity() {
                             val list = extractArray(result.json, result.array, "clientes").toObjectList().map { SellerCustomer.fromJson(it) }
                             callback(list)
                         }
-                    }, onOpenCustomer = ::openCustomer)
+                    }, onOpenCustomer = ::openCustomer, onVerify = { openVerify(it, fromDetail = false) })
                     SellerTab.STATS -> StatsScreen(summary, onRange = { from, until ->
                         BaboonsApi.tablero(session!!, from, until) { result ->
                             if (result.error != null) error = result.error else summary = SellerSummary.fromJson(result.json ?: JSONObject())

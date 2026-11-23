@@ -79,6 +79,12 @@ object BaboonsApi {
     fun pedidosCliente(session: SellerSession, customerId: Long, callback: (ApiResult) -> Unit) =
         request("GET", biz(session, "vendedores-calle/clientes/$customerId/pedidos-odoo"), session, null, callback)
 
+    fun fichaCliente(session: SellerSession, customerId: Long, callback: (ApiResult) -> Unit) =
+        request("GET", biz(session, "vendedores-calle/clientes/$customerId/ficha"), session, null, callback)
+
+    fun enviarVerificacion(session: SellerSession, customerId: Long, body: JSONObject, callback: (ApiResult) -> Unit) =
+        request("POST", biz(session, "vendedores-calle/clientes/$customerId/verificacion"), session, body, callback)
+
     fun miRastro(session: SellerSession, date: String, callback: (ApiResult) -> Unit) =
         request("GET", "negocios/${session.businessId}/mobile/mi-rastro?fecha=${encode(date)}", session, null, callback)
 
