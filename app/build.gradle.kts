@@ -77,6 +77,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20250517")
+
+    // API en todas las variantes. El SDK completo (beta, auto-update) solo en debug:
+    // es lo que se sube a Firebase App Distribution. No va en release, porque Google Play
+    // lo puede rechazar aunque el código no se ejecute. Las KTX ya no se publican.
+    // App Distribution sigue en beta y no entra en el BoM; la versión va explícita.
+    implementation("com.google.firebase:firebase-appdistribution-api:16.0.0-beta21")
+    debugImplementation("com.google.firebase:firebase-appdistribution:16.0.0-beta21")
 }
 
 val prodApplicationId = "com.baboons.vendedorescalle"

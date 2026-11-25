@@ -43,6 +43,14 @@ No hay workflow ni script de distribucion en el repositorio. Para publicar hay q
 
 Firebase App Distribution del proyecto `appbaboonssellers` tiene registrada solo `com.baboons.vendedorescalle`. La variante testing se puede instalar con el APK directo. Para distribuirla por Firebase hay que dar de alta una app Android nueva con package `com.baboons.vendedorescalle.testing`. Si mas adelante se agrega `app/google-services.json` solo con el package de produccion, el build genera `app/src/qa/google-services.json` (esta en `.gitignore`) copiando ese client y cambiando el package, para que el plugin de Google Services no corte la compilacion. Si ese archivo ya existe, no se pisa: hay que borrarlo para regenerarlo. No reemplaza el alta en Firebase ni sirve para distribuir la variante testing.
 
+### Alertas in-app de una versión nueva
+
+En las variantes **debug** (`assembleProdDebug` / `assembleTestingDebug`) la app chequea, al volver al frente y con el vendedor ya logueado, si hay una versión más nueva en App Distribution y muestra el diálogo oficial para actualizar. La primera vez el tester tiene que iniciar sesión con la misma cuenta de Google con la que está invitado en App Distribution; después queda recordado en ese dispositivo.
+
+Hay que subir un APK **debug** (firmado con el keystore de debug). `assembleProdRelease` no incluye el SDK completo de App Distribution: Google Play lo puede rechazar, y además ese APK sale sin firmar. Si más adelante se quiere distribuir un release firmado a testers con estas alertas, hay que agregar un `buildType` aparte y no usar ese artefacto en Play Store.
+
+Para que el chequeo funcione hace falta `app/google-services.json` de la app `com.baboons.vendedorescalle` (el plugin de Google Services ya está preparado) y tener habilitada la **Firebase App Testers API** en el proyecto de Google Cloud. Cada build que se suba a testers tiene que tener un `versionCode` mayor que el instalado (hoy está en `1`). El permiso `POST_NOTIFICATIONS` ya está en el manifiesto y se pide al iniciar la jornada; sirve también para el aviso de progreso de la descarga del APK.
+
 La migracion de Baboons ya esta mergeada y aplicada en Neon. La busqueda de clientes fuera de zona para agregar excepciones y las pantallas administrativas de mapa/tablero en Baboons siguen pendientes de concretar.
 
 ## Decisiones iniciales propuestas
