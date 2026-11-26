@@ -97,6 +97,11 @@ class MainActivity : ComponentActivity() {
         setContent { BondTheme { SellerApp() } }
     }
 
+    override fun onResume() {
+        super.onResume()
+        AppDistributionUpdates.checkIfNeeded(this)
+    }
+
     private fun withLocationPermission(action: () -> Unit) {
         val permissions = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) permissions += Manifest.permission.ACCESS_FINE_LOCATION
@@ -370,7 +375,13 @@ class MainActivity : ComponentActivity() {
                 BaboonsApi.login(email.trim(), password) { result ->
                     val token = result.json?.optString("token").orEmpty()
                     session = if (result.error == null && token.isNotBlank()) SessionStore.save(context, token) else null
-                    if (session == null) fail(result.error ?: "La cuenta no tiene un vendedor asociado.") else error = null
+                    if (session == null) {
+                        fail(result.error ?: "La cuenta no tiene un vendedor asociado.")
+                    } else {
+                        error = null
+                        // onResume no se vuelve a disparar: el login ocurre con la Activity ya resumida.
+                        AppDistributionUpdates.checkIfNeeded(context)
+                    }
                 }
             }
             return
